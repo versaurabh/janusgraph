@@ -45,8 +45,8 @@ public class CQLStoreFeaturesBuilder {
             .set(METRICS_PREFIX, METRICS_SYSTEM_PREFIX_DEFAULT);
 
         final Configuration local = buildGraphConfiguration()
-            .set(READ_CONSISTENCY, CQLStoreManager.CONSISTENCY_LOCAL_QUORUM)
-            .set(WRITE_CONSISTENCY, CQLStoreManager.CONSISTENCY_LOCAL_QUORUM)
+            .set(READ_CONSISTENCY, CQLStoreManager.CONSISTENCY_ONE)
+            .set(WRITE_CONSISTENCY, CQLStoreManager.CONSISTENCY_ONE)
             .set(METRICS_PREFIX, METRICS_SYSTEM_PREFIX_DEFAULT);
 
         final Boolean onlyUseLocalConsistency = configuration.get(ONLY_USE_LOCAL_CONSISTENCY_FOR_SYSTEM_OPERATIONS);

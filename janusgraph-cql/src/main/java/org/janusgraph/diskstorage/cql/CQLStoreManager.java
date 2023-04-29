@@ -84,6 +84,7 @@ import static org.janusgraph.util.system.ExecuteUtil.throwIfException;
 public class CQLStoreManager extends DistributedStoreManager implements KeyColumnValueStoreManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(CQLStoreManager.class);
 
+    public static final String CONSISTENCY_ONE = "ONE";
     public static final String CONSISTENCY_LOCAL_QUORUM = "LOCAL_QUORUM";
     public static final String CONSISTENCY_QUORUM = "QUORUM";
 
