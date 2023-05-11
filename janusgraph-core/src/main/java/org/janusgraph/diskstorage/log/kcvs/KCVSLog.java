@@ -375,7 +375,7 @@ public class KCVSLog implements Log, BackendOperation.TransactionalProvider {
     public StoreTransaction openTx() throws BackendException {
         StandardBaseTransactionConfig config;
 
-        // Always forcing ONE consistency for READS & WRITES
+        // Always forcing ONE consistency for READS & WRITES for KCVSLog ops (a type of system-ops)
         config = StandardBaseTransactionConfig.of(times,manager.storeManager.getFeatures().getLocalKeyConsistentTxConfig());
         return manager.storeManager.beginTransaction(config);
     }

@@ -33,6 +33,11 @@ import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.ME
 import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.buildGraphConfiguration;
 
 public class CQLStoreFeaturesBuilder {
+    boolean oneConsistencyOps;
+
+    public CQLStoreFeaturesBuilder(boolean oneConsistencyOps) {
+        this.oneConsistencyOps = oneConsistencyOps;
+    }
 
     public CQLStoreFeaturesWrapper build(final CqlSession session, final Configuration configuration, final String[] hostnames){
 
@@ -45,6 +50,11 @@ public class CQLStoreFeaturesBuilder {
             .set(METRICS_PREFIX, METRICS_SYSTEM_PREFIX_DEFAULT);
 
         final Configuration local = buildGraphConfiguration()
+            .set(READ_CONSISTENCY, CQLStoreManager.CONSISTENCY_LOCAL_QUORUM)
+            .set(WRITE_CONSISTENCY, CQLStoreManager.CONSISTENCY_LOCAL_QUORUM)
+            .set(METRICS_PREFIX, METRICS_SYSTEM_PREFIX_DEFAULT);
+
+        final Configuration one = buildGraphConfiguration()
             .set(READ_CONSISTENCY, CQLStoreManager.CONSISTENCY_ONE)
             .set(WRITE_CONSISTENCY, CQLStoreManager.CONSISTENCY_ONE)
             .set(METRICS_PREFIX, METRICS_SYSTEM_PREFIX_DEFAULT);
@@ -57,7 +67,12 @@ public class CQLStoreFeaturesBuilder {
 
         fb.batchMutation(true).distributed(true);
         fb.timestamps(true).cellTTL(true);
-        fb.keyConsistent((onlyUseLocalConsistency ? local : global), local);
+        if (oneConsistencyOps) {
+            fb.keyConsistent((onlyUseLocalConsistency ? one : global), one);
+        } else {
+            fb.keyConsistent((onlyUseLocalConsistency ? local : global), local);
+        }
+
         fb.locking(useExternalLocking);
         fb.optimisticLocking(true);
         fb.multiQuery(false);

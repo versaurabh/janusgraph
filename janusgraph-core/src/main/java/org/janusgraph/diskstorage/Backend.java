@@ -195,6 +195,8 @@ public class Backend implements LockerProvider, AutoCloseable {
         }});
 
     private final KeyColumnValueStoreManager storeManager;
+
+    private final KeyColumnValueStoreManager systemOpsStoreManager;
     private final KeyColumnValueStoreManager storeManagerLocking;
     private final StoreFeatures storeFeatures;
 
@@ -239,9 +241,12 @@ public class Backend implements LockerProvider, AutoCloseable {
         indexes = getIndexes(configuration);
         storeFeatures = storeManager.getFeatures();
 
-        managementLogManager = getKCVSLogManager(MANAGEMENT_LOG);
-        txLogManager = getKCVSLogManager(TRANSACTION_LOG);
-        userLogManager = getLogManager(USER_LOG);
+        // initialize systemOpsStoreManager
+        systemOpsStoreManager = getStorageManagerOneConsistency(configuration);
+
+        managementLogManager = getKCVSLogManager(MANAGEMENT_LOG, true);
+        txLogManager = getKCVSLogManager(TRANSACTION_LOG, true);
+        userLogManager = getLogManager(USER_LOG, true);
 
 
         cacheEnabled = !configuration.get(STORAGE_BATCH) && configuration.get(DB_CACHE);
@@ -259,7 +264,7 @@ public class Backend implements LockerProvider, AutoCloseable {
             Preconditions.checkArgument(storeFeatures.isKeyConsistent(),"Store needs to support some form of locking");
             storeManagerLocking = new ExpectedValueCheckingStoreManager(storeManager,LOCK_STORE_SUFFIX,this,maxReadTime);
         } else {
-            storeManagerLocking = storeManager;
+            storeManagerLocking = systemOpsStoreManager;
         }
 
         threadPool = configuration.get(PARALLEL_BACKEND_OPS) ? buildExecutorService(configuration) : null;
@@ -354,7 +359,7 @@ public class Backend implements LockerProvider, AutoCloseable {
             //Just open them so that they are cached
             txLogManager.openLog(SYSTEM_TX_LOG_NAME);
             managementLogManager.openLog(SYSTEM_MGMT_LOG_NAME);
-            txLogStore = new NoKCVSCache(storeManager.openDatabase(SYSTEM_TX_LOG_NAME));
+            txLogStore = new NoKCVSCache(systemOpsStoreManager.openDatabase(SYSTEM_TX_LOG_NAME));
 
 
             //Open global configuration
@@ -365,7 +370,7 @@ public class Backend implements LockerProvider, AutoCloseable {
                 public StoreTransaction openTx() throws BackendException {
                     return storeManagerLocking.beginTransaction(StandardBaseTransactionConfig.of(
                             configuration.get(TIMESTAMP_PROVIDER),
-                            storeFeatures.getKeyConsistentTxConfig()));
+                        storeManagerLocking.getFeatures().getLocalKeyConsistentTxConfig()));
                 }
 
                 @Override
@@ -376,7 +381,7 @@ public class Backend implements LockerProvider, AutoCloseable {
             userConfig = kcvsConfigurationBuilder.buildConfiguration(new BackendOperation.TransactionalProvider() {
                 @Override
                 public StoreTransaction openTx() throws BackendException {
-                    return storeManagerLocking.beginTransaction(StandardBaseTransactionConfig.of(configuration.get(TIMESTAMP_PROVIDER)));
+                    return storeManagerLocking.beginTransaction(StandardBaseTransactionConfig.of(configuration.get(TIMESTAMP_PROVIDER), storeManagerLocking.getFeatures().getLocalKeyConsistentTxConfig()));
                 }
 
                 @Override
@@ -462,13 +467,17 @@ public class Backend implements LockerProvider, AutoCloseable {
         return configuration.get(METRICS_MERGE_STORES) ? METRICS_MERGED_CACHE : storeName + METRICS_CACHE_SUFFIX;
     }
 
-    public KCVSLogManager getKCVSLogManager(String logName) {
+    public KCVSLogManager getKCVSLogManager(String logName, boolean oneConsistency) {
         Preconditions.checkArgument(configuration.restrictTo(logName).get(LOG_BACKEND).equalsIgnoreCase(LOG_BACKEND.getDefaultValue()));
-        return (KCVSLogManager)getLogManager(logName);
+        return (KCVSLogManager)getLogManager(logName, oneConsistency);
     }
 
-    public LogManager getLogManager(String logName) {
-        return getLogManager(configuration, logName, storeManager);
+    public LogManager getLogManager(String logName, boolean oneConsistency) {
+        if (oneConsistency) {
+            return getLogManager(configuration, logName, systemOpsStoreManager);
+        } else {
+            return getLogManager(configuration, logName, storeManager);
+        }
     }
 
     private static LogManager getLogManager(Configuration config, String logName, KeyColumnValueStoreManager sm) {
@@ -488,6 +497,21 @@ public class Backend implements LockerProvider, AutoCloseable {
     public static KeyColumnValueStoreManager getStorageManager(Configuration storageConfig) {
         StoreManager manager = getImplementationClass(storageConfig, storageConfig.get(STORAGE_BACKEND),
                 StandardStoreManager.getAllManagerClasses());
+        if (manager instanceof OrderedKeyValueStoreManager) {
+            Map<String, Integer> keyLength = new HashMap<>(3);
+            keyLength.put(EDGESTORE_NAME, 8);
+            keyLength.put(EDGESTORE_NAME + LOCK_STORE_SUFFIX, 8);
+            keyLength.put(storageConfig.get(IDS_STORE_NAME), 8);
+            keyLength = Collections.unmodifiableMap(keyLength);
+            manager = new OrderedKeyValueStoreManagerAdapter((OrderedKeyValueStoreManager) manager, keyLength);
+        }
+        Preconditions.checkArgument(manager instanceof KeyColumnValueStoreManager,"Invalid storage manager: %s",manager.getClass());
+        return (KeyColumnValueStoreManager) manager;
+    }
+
+    public static KeyColumnValueStoreManager getStorageManagerOneConsistency(Configuration storageConfig) {
+        StoreManager manager = getImplementationClass(storageConfig, storageConfig.get(STORAGE_BACKEND) + "one",
+            StandardStoreManager.getAllManagerClasses());
         if (manager instanceof OrderedKeyValueStoreManager) {
             Map<String, Integer> keyLength = new HashMap<>(3);
             keyLength.put(EDGESTORE_NAME, 8);
@@ -541,7 +565,7 @@ public class Backend implements LockerProvider, AutoCloseable {
      * @return
      */
     public StoreFeatures getStoreFeatures() {
-        return storeFeatures;
+        return systemOpsStoreManager.getFeatures();
     }
 
     public Class<? extends KeyColumnValueStoreManager> getStoreManagerClass() {

@@ -61,7 +61,7 @@ public class GraphDatabaseConfigurationBuilder {
         BasicConfiguration localBasicConfiguration = new BasicConfiguration(ROOT_NS,localConfig, BasicConfiguration.Restriction.NONE);
         ModifiableConfiguration overwrite = new ModifiableConfiguration(ROOT_NS,new CommonsConfiguration(), BasicConfiguration.Restriction.NONE);
 
-        final KeyColumnValueStoreManager storeManager = Backend.getStorageManager(localBasicConfiguration);
+        final KeyColumnValueStoreManager storeManager = Backend.getStorageManagerOneConsistency(localBasicConfiguration);
         final StoreFeatures storeFeatures = storeManager.getFeatures();
 
         final ReadConfiguration globalConfig = new ReadConfigurationBuilder().buildGlobalConfiguration(

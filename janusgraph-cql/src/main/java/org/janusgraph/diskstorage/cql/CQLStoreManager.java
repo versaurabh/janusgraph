@@ -94,7 +94,7 @@ public class CQLStoreManager extends DistributedStoreManager implements KeyColum
     protected static final CQLProgrammaticConfigurationLoaderBuilder DEFAULT_PROGRAMMATIC_CONFIGURATION_LOADER_BUILDER = new CQLProgrammaticConfigurationLoaderBuilder();
 
     protected static final CQLMutateManyFunctionBuilder DEFAULT_MUTATE_MANY_FUNCTION_BUILDER = new CQLMutateManyFunctionBuilder();
-    protected static final CQLStoreFeaturesBuilder DEFAULT_STORE_FEATURES_BUILDER = new CQLStoreFeaturesBuilder();
+    protected static final CQLStoreFeaturesBuilder DEFAULT_STORE_FEATURES_BUILDER = new CQLStoreFeaturesBuilder(false);
 
     private final String keyspace;
 

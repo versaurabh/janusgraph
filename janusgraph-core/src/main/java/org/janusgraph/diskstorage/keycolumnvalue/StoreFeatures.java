@@ -223,4 +223,8 @@ public interface StoreFeatures {
      */
     boolean hasOptimisticLocking();
 
+    /**
+     * set if the ONE consistency is required for ops
+     */
+    void setOneConsistency(boolean flag);
 }
